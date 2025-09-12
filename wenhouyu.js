@@ -1,10 +1,10 @@
-// 顶部左边问候语实现代码
+// 顶部左边问候语，仅在 shli.io 下执行
 (function() {
   if (window.location.hostname !== 'shli.io') return;
 
-const p = document.querySelector('p.text-base.font-semibold');
+  const p = document.querySelector('p.text-base.font-semibold');
+  if (!p) return;
 
-if (p) {
   const hour = new Date().getHours();
   let greetings = [];
 
@@ -114,4 +114,4 @@ if (p) {
 
   // 显示
   p.textContent = randomGreeting;
-}
+})();
