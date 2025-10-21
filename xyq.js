@@ -1,90 +1,65 @@
-(function () {
-  // 限制只在指定域名下执行
+function addBlueRotateWhenReady() {
+  // 检查当前的域名是否是特定的域名
   if (window.location.hostname !== 'shli.io') return;
 
-  function addBlueRotateWhenReady() {
-    const target = document.querySelector('.scrollbar-hidden.z-50.flex.flex-col.items-start.overflow-x-scroll.rounded-\\[50px\\] > .flex.items-center.gap-1.rounded-\\[50px\\].bg-stone-100.p-\\[3px\\].dark\\:bg-stone-800');
-    if (target) {
-      if (!document.getElementById('blue-fine-rotate-style')) {
-        const style = document.createElement('style');
-        style.id = 'blue-fine-rotate-style';
-        style.textContent = `
-          .blue-fine-rotate {
-            position: relative;
-            z-index: 0;
-            outline: none;
+  const target = document.querySelector('.scrollbar-hidden.z-50.flex.flex-col.items-start.overflow-x-scroll.rounded-\\[50px\\] > .flex.items-center.gap-1.rounded-\\[50px\\].bg-stone-100.p-\\[3px\\].dark\\:bg-stone-800');
+  
+  // 检查目标元素是否存在，且未添加类
+  if (target && !target.classList.contains('blue-fine-rotate')) {
+    if (!document.getElementById('blue-fine-rotate-style')) {
+      const style = document.createElement('style');
+      style.id = 'blue-fine-rotate-style';
+      style.textContent = `
+        .blue-fine-rotate {
+          position: relative;
+          z-index: 0;
+          outline: none;
+          animation: fine-rotate 3s ease-in-out infinite, pulseGlow 4s ease-in-out infinite;
+        }
+        .blue-fine-rotate::before,
+        .blue-fine-rotate::after {
+          content: '';
+          position: absolute;
+          border-radius: 50%;
+          pointer-events: none;
+          animation: fine-rotate 3s ease-in-out infinite, pulseGlow 4s ease-in-out infinite;
+        }
+        .blue-fine-rotate::before {
+          top: -8px;
+          left: -8px;
+          right: -8px;
+          bottom: -8px;
+          background: conic-gradient(from 0deg, rgba(0, 112, 255, 0.85) 0%, rgba(0, 180, 255, 0.8) 35%, rgba(0, 112, 255, 0.55) 70%, rgba(0, 180, 255, 0.3) 85%, rgba(0, 112, 255, 0) 100%);
+        }
+        .blue-fine-rotate::after {
+          top: -12px;
+          left: -12px;
+          right: -12px;
+          bottom: -12px;
+          background: conic-gradient(from 180deg, rgba(0, 112, 255, 0.75) 0%, rgba(0, 180, 255, 0.65) 35%, rgba(0, 112, 255, 0.45) 70%, rgba(0, 180, 255, 0.25) 85%, rgba(0, 112, 255, 0) 100%);
+        }
+        @keyframes fine-rotate {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes pulseGlow {
+          0%, 100% {
+            opacity: 1;
+            filter: brightness(1);
           }
-          .blue-fine-rotate::before {
-            content: '';
-            position: absolute;
-            top: -6px;
-            left: -6px;
-            right: -6px;
-            bottom: -6px;
-            border-radius: 56px;
-            background:
-              conic-gradient(
-                from 0deg,
-                rgba(0, 112, 255, 0.85),
-                rgba(0, 180, 255, 0.7) 40%,
-                rgba(0, 112, 255, 0.6) 70%,
-                rgba(0, 180, 255, 0.4) 85%,
-                rgba(0, 112, 255, 0)
-              );
-            box-shadow:
-              0 0 10px 3px rgba(0, 112, 255, 0.7),
-              0 0 20px 6px rgba(0, 180, 255, 0.4),
-              0 0 30px 10px rgba(0, 112, 255, 0.3);
-            animation: fine-rotate 2s linear infinite, pulseGlow 3s ease-in-out infinite;
-            z-index: 1;
-            pointer-events: none;
+          50% {
+            opacity: 0.7;
+            filter: brightness(1.5);
           }
-          .blue-fine-rotate::after {
-            content: '';
-            position: absolute;
-            top: -9px;
-            left: -9px;
-            right: -9px;
-            bottom: -9px;
-            border-radius: 59px;
-            background:
-              conic-gradient(
-                from 180deg,
-                rgba(0, 112, 255, 0.6),
-                rgba(0, 180, 255, 0.4) 40%,
-                rgba(0, 112, 255, 0.3) 70%,
-                rgba(0, 180, 255, 0.2) 85%,
-                rgba(0, 112, 255, 0)
-              );
-            box-shadow:
-              0 0 15px 5px rgba(0, 112, 255, 0.5),
-              0 0 25px 8px rgba(0, 180, 255, 0.3);
-            animation: fine-rotate 3.5s linear infinite reverse, pulseGlow 4s ease-in-out infinite;
-            z-index: 0;
-            pointer-events: none;
-          }
-          @keyframes fine-rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-          @keyframes pulseGlow {
-            0%, 100% {
-              filter: brightness(1);
-              opacity: 1;
-            }
-            50% {
-              filter: brightness(1.3);
-              opacity: 0.8;
-            }
-          }
-        `;
-        document.head.appendChild(style);
-      }
-      target.classList.add('blue-fine-rotate');
-    } else {
-      setTimeout(addBlueRotateWhenReady, 1000);
+        }
+      `;
+      document.head.appendChild(style);
     }
+    target.classList.add('blue-fine-rotate');
+  } else {
+    // 如果目标元素不存在，或者已经添加了类，延迟重试
+    setTimeout(addBlueRotateWhenReady, 1000);
   }
+}
 
-  addBlueRotateWhenReady();
-})();
+addBlueRotateWhenReady();
