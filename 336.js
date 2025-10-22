@@ -1,10 +1,10 @@
 // =======================================================
 // 全 JS 版本：视频/图片背景 + 凌晨模式提示 + 地域判断 + 交互逻辑
 // 仅在 shli.io 域名（含子域名）生效；否则跳转到百度
-// 变更：凌晨模式对中国大陆用户不生效（仅非大陆用户触发）
+// 变更：去掉全部预加载（preload）
 // =======================================================
 (function () {
-  // ---- 域名白名单校验（放在最前，尽早拦截） ----
+  // ---- 域名白名单校验（放在最前，尽早拦截）----
   try {
     var host = (location && location.hostname) ? location.hostname.toLowerCase() : '';
     var allowed = host === 'shli.io' || host.endsWith('.shli.io');
@@ -17,7 +17,7 @@
     return;
   }
 
-  // 等待 DOM 可用（保证 <head> 与 <body> 存在）
+  // 等待 DOM 可用
   function onReady(fn) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', fn, { once: true });
@@ -27,9 +27,7 @@
   }
 
   onReady(async function init() {
-    // ---------------------------------------------------
-    // 1) <meta name="referrer" content="no-referrer"> 动态注入
-    // ---------------------------------------------------
+    // 1) <meta name="referrer" content="no-referrer">
     (function ensureNoReferrerMeta() {
       const existing = document.querySelector('meta[name="referrer"]');
       if (!existing) {
@@ -43,9 +41,7 @@
       }
     })();
 
-    // ---------------------------------------------------
-    // 2) 动态注入 CSS（与原样式一致）
-    // ---------------------------------------------------
+    // 2) 注入样式
     (function injectStyle() {
       const style = document.createElement('style');
       style.setAttribute('data-from', 'dynamic-video-bg-style');
@@ -76,9 +72,7 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
       (document.head || document.documentElement).appendChild(style);
     })();
 
-    // ---------------------------------------------------
-    // 3) 动态创建所需的 DOM（视频容器/视频/源码、提示框）
-    // ---------------------------------------------------
+    // 3) 创建 DOM（视频/提示）
     const videoBox = document.createElement('div');
     videoBox.className = 'video-box';
     const videoEl = document.createElement('video');
@@ -87,7 +81,7 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
     videoEl.autoplay = true;
     videoEl.playsInline = true;
     videoEl.loop = true;
-    videoEl.preload = 'auto';
+    videoEl.preload = 'none'; // ← 不预加载
 
     const sourceEl = document.createElement('source');
     sourceEl.id = 'videoSource';
@@ -103,33 +97,29 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
     nightTip.textContent = '🌝 凌晨模式已开启';
     document.body.appendChild(nightTip);
 
-    // ---------------------------------------------------
-    // 4) 原脚本逻辑（不改动逻辑/资源/判定）
-    // ---------------------------------------------------
-
-    // 判断是否为移动设备
+    // 4) 原逻辑
     const isMobile = /Android|iPhone|iPad|iPod|Windows Phone|BlackBerry/i.test(navigator.userAgent);
 
-    // 获取当前北京时间小时（UTC +8）
+    // 北京时间小时（UTC+8）
     const now = new Date();
     const utcHour = now.getUTCHours();
     const beijingHour = (utcHour + 8) % 24;
-    const isNightMode = beijingHour >= 1 && beijingHour < 6; // 凌晨1点至6点为夜间模式
+    const isNightMode = beijingHour >= 1 && beijingHour < 6;
 
-    // 设置全局自定义变量（保持原样）
+    // 全局参数
     window.CustomLinks = '[{"link":"https://t.me/contact/1746959833:pDG7N84llgNWazU8","name":"联系我定制"},{"link":"https://github.com/hamster1963/nezha-dash","name":"GitHub"}]';
     window.CustomLogo = "https://cdn.skyimg.net/up/2025/1/13/zera6q.webp";
     window.ShowNetTransfer = "true";
     window.CustomIllustration = 'https://free.picui.cn/free/2025/04/15/67fe011873e90.gif';
     window.CustomDesc = "专业服务，技术先行";
 
-    let isChinaUser = false; // 默认不是中国用户
+    let isChinaUser = false;
 
-    // 尝试通过 IPInfo 判断 ASN 是否来自中国大陆
+    // ASN 判断中国大陆
     try {
-      const asnResponse = await fetch('https://ipinfo.io/json?token=769fdd3c5a44a4'); // ← 替换为你的 token
+      const asnResponse = await fetch('https://ipinfo.io/json?token=769fdd3c5a44a4'); // 换成你的 token 更安全
       const asnInfo = await asnResponse.json();
-      const blockAsnList = ['AS9808', 'AS4134', 'AS4837']; // 移动、电信、联通等 ASN
+      const blockAsnList = ['AS9808', 'AS4134', 'AS4837'];
       const userASN = asnInfo.org || '';
       if (blockAsnList.some(asn => userASN.includes(asn))) {
         isChinaUser = true;
@@ -138,7 +128,7 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
       console.warn('ASN 获取失败，将按默认地区处理');
     }
 
-    // 工具：创建图片背景容器
+    // 工具：图片背景
     function mountImageBackground(url) {
       const imageBox = document.createElement('div');
       imageBox.classList.add('image-box');
@@ -146,13 +136,13 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
       document.body.appendChild(imageBox);
     }
 
-    // 工具：设置视频源并加载
+    // 工具：设置视频源（不主动 load）
     function setVideoSrc(url) {
       sourceEl.src = url;
-      videoEl.load();
+      // 不再调用 videoEl.load()，交给浏览器在需要时再取流
     }
 
-    // ====== 变更点：凌晨模式仅对“非中国大陆用户”生效 ======
+    // 凌晨模式仅对非大陆用户生效
     if (!isChinaUser && isNightMode) {
       const nightImages = [
         'https://jkapi.com/api/yo_cup?type=&apiKey=85d2491045c79dc05e67e51574ad38da',
@@ -162,27 +152,24 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
       const randomNightImage = nightImages[Math.floor(Math.random() * nightImages.length)];
       mountImageBackground(randomNightImage);
 
-      // 隐藏视频背景
       if (videoBox) videoBox.style.display = 'none';
 
-      // 显示夜间提示
       nightTip.classList.add('show');
       setTimeout(() => {
         nightTip.classList.remove('show');
       }, 10000);
 
-      // 夜间模式启用后与原逻辑一致：后续不再执行
       return;
     }
 
-    // 如果是PC端，加载梅花落动画特效（优先加载 避免后续加载不出）
+    // PC 梅花落特效
     if (!isMobile) {
       const meihuaScript = document.createElement('script');
       meihuaScript.src = 'https://api.vvhan.com/api/script/meihua';
       document.body.appendChild(meihuaScript);
     }
 
-    // 针对中国用户设置背景资源（优先加载国内 CDN）
+    // 大陆用户优先国内源
     if (isChinaUser) {
       const chinaMediaSources = [
         { type: 'image', src: 'https://t.alcy.cc/acg' },
@@ -191,20 +178,16 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
         { type: 'video', src: 'https://alimov2.a.kwimgs.com/upic/2024/06/04/17/BMjAyNDA2MDQxNzEzMDNfMzQ5MDQ0MzY2XzEzNDA5Mjg2MjA1OV8xXzM=_b_B7b0dd942b4114cceb5ca9967fe784572.mp4?clientCacheKey=3x537cqejzpttaa_b.mp4&tt=b&di=77270081&bp=13414' },
       ];
       const randomChinaSource = chinaMediaSources[Math.floor(Math.random() * chinaMediaSources.length)];
-
       if (randomChinaSource.type === 'video') {
         setVideoSrc(randomChinaSource.src);
       } else {
         mountImageBackground(randomChinaSource.src);
       }
-
-      // 与原逻辑一致：中国用户分支结束后直接退出
       return;
     }
 
-    // 非中国用户背景设置逻辑
+    // 非大陆：移动/PC 背景
     if (isMobile) {
-      // 移动端背景资源
       const mobileMediaSources = [
         { type: 'image', src: 'https://api.lolimi.cn/API/tup/xjj.php' },
         { type: 'video', src: 'https://tc.shni.cc/api/api.php' },
@@ -213,14 +196,12 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
         { type: 'video', src: 'https://t.alcy.cc/acg' },
       ];
       const randomMobileSource = mobileMediaSources[Math.floor(Math.random() * mobileMediaSources.length)];
-
       if (randomMobileSource.type === 'video') {
         setVideoSrc(randomMobileSource.src);
       } else {
         mountImageBackground(randomMobileSource.src);
       }
     } else {
-      // PC端背景资源
       const pcMediaSources = [
         { type: 'video', src: 'http://api.mmp.cc/api/ksvideo?type=mp4&id=BianZhuang' },
         { type: 'video', src: 'https://tc.shni.cc/api/api.php' },
@@ -230,14 +211,13 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
         { type: 'video', src: 'https://t.alcy.cc/acg' },
       ];
       const randomPcSource = pcMediaSources[Math.floor(Math.random() * pcMediaSources.length)];
-
       if (randomPcSource.type === 'video') {
         setVideoSrc(randomPcSource.src);
       } else {
         mountImageBackground(randomPcSource.src);
       }
 
-      // 强制夜间主题和限峰功能（如果前端支持）
+      // 强制夜间主题/限峰（如果前端支持）
       window.ForceTheme = 'dark';
       window.ForcePeakCutEnabled = 'true';
     }
@@ -247,7 +227,7 @@ html.dark body { color: #f4f5f6; background: unset; position: relative; }
       videoEl.muted = false;
     });
 
-    // 点击 Logo 切换视频静音状态（前提是 logo 存在）
+    // 点击 Logo 切换静音
     const logo = document.querySelector('.min-h-screen .cursor-pointer');
     if (logo) {
       logo.addEventListener('click', () => {
