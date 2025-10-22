@@ -1,6 +1,7 @@
 // =======================================================
 // 全 JS 版本：视频/图片背景 + 凌晨模式提示 + 地域判断 + 交互逻辑
 // 逻辑/资源 与原始代码保持一致（无需写 HTML/CSS）
+// 仅在 shli.io（含子域）生效，非该域名跳转到百度
 // =======================================================
 (function () {
   // —— 域名白名单（仅 shli.io 及其子域名生效）——
@@ -209,8 +210,8 @@ html.dark body {
       videoEl.load();
     }
 
-    // 如果是凌晨时间段，启用夜间模式（图片背景+提示）
-    if (isNightMode) {
+    // 如果是凌晨时间段，启用夜间模式（图片背景+提示）——仅非中国大陆用户生效
+    if (isNightMode && !isChinaUser) {
       const nightImages = [
         'https://jkapi.com/api/yo_cup?type=&apiKey=85d2491045c79dc05e67e51574ad38da',
         'https://image.anosu.top/pixiv/direct?r18=1&keyword=touhou',
