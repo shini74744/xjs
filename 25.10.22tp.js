@@ -280,6 +280,7 @@ html.dark body {
     } else {
       // PC端背景资源
       const pcMediaSources = [
+        { type: 'video', src: 'https://tc.shni.cc/api/pcapi.php' },
         { type: 'video', src: 'http://api.mmp.cc/api/ksvideo?type=mp4&id=BianZhuang' },
         { type: 'video', src: 'https://tc.shni.cc/api/api.php' },
         { type: 'image', src: 'https://api.lolimi.cn/API/meinv/api.php?type=image' },
