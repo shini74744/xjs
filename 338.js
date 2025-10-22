@@ -3,7 +3,7 @@
 // 逻辑/资源 与原始代码保持一致（无需写 HTML/CSS）
 // =======================================================
 (function () {
-  // —— 新增：域名白名单（仅 shli.io 及其子域名生效）——
+  // —— 域名白名单（仅 shli.io 及其子域名生效）——
   try {
     var host = (location && location.hostname) ? location.hostname.toLowerCase() : '';
     var allowed = host === 'shli.io' || host.endsWith('.shli.io');
@@ -209,8 +209,8 @@ html.dark body {
       videoEl.load();
     }
 
-    // —— 修改点：凌晨模式仅非中国大陆用户生效 ——
-    if (isNightMode && !isChinaUser) {
+    // 如果是凌晨时间段，启用夜间模式（图片背景+提示）
+    if (isNightMode) {
       const nightImages = [
         'https://jkapi.com/api/yo_cup?type=&apiKey=85d2491045c79dc05e67e51574ad38da',
         'https://image.anosu.top/pixiv/direct?r18=1&keyword=touhou',
