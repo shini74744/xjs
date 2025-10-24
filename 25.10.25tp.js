@@ -1,5 +1,5 @@
 // =======================================================
-// 全 JS 版本：视频/图片背景 + 凌晨模式提示 + 地域判断 + 交互逻辑 + Favicon 同步
+// 全 JS 版本：视频/图片背景 + 凌晨模式提示 + 地域判断 + 交互逻辑 + Favicon 跟随 CustomLogo
 // 逻辑/资源 与原始代码保持一致（无需写 HTML/CSS）
 // 仅在 shli.io（含子域）生效，非该域名跳转到百度
 // =======================================================
@@ -29,7 +29,6 @@
   onReady(async function init() {
     // ---------------------------------------------------
     // 1) <meta name="referrer" content="no-referrer"> 动态注入
-    //    说明：动态注入可能无法影响更早发起的请求，但可保证与原设置一致。
     // ---------------------------------------------------
     (function ensureNoReferrerMeta() {
       const existing = document.querySelector('meta[name="referrer"]');
@@ -37,7 +36,6 @@
         const meta = document.createElement('meta');
         meta.setAttribute('name', 'referrer');
         meta.setAttribute('content', 'no-referrer');
-        // 尽量插在<head>最前面
         const head = document.head || document.getElementsByTagName('head')[0];
         head.insertBefore(meta, head.firstChild || null);
       } else {
@@ -151,7 +149,6 @@ html.dark body {
     sourceEl.type = 'video/mp4';
 
     videoEl.appendChild(sourceEl);
-    // “您的浏览器不支持 HTML5 视频。” 的文本提示
     videoEl.appendChild(document.createTextNode('您的浏览器不支持 HTML5 视频。'));
     videoBox.appendChild(videoEl);
     document.body.appendChild(videoBox);
@@ -181,76 +178,38 @@ html.dark body {
     window.CustomIllustration = 'https://free.picui.cn/free/2025/04/15/67fe011873e90.gif';
     window.CustomDesc = "专业服务，技术先行";
 
-    // —— Favicon 同步：让浏览器图标跟随 CustomLogo / 页面 logo 变化 ——
-    (function setupFaviconSync() {
-      const FAVICON_SIZE = 64;
-
+    // —— 仅将 favicon 直接跟随 window.CustomLogo（不做转码/裁剪/猜测）——
+    (function faviconFollowCustomLogo() {
       function ensureHead() {
         return document.head || document.getElementsByTagName('head')[0] || document.documentElement;
       }
-
-      function setFaviconHref(href, type) {
+      function setFavicon(href) {
+        if (!href || typeof href !== 'string') return;
         const head = ensureHead();
-        let link = head.querySelector('link[rel="icon"]');
-        if (!link) {
-          link = document.createElement('link');
-          link.rel = 'icon';
-          head.appendChild(link);
-        }
-        link.href = href;
-        if (type) link.type = type;
-        link.sizes = 'any';
 
-        // 兼容旧写法
+        // 更新/创建 rel="icon"
+        let icon = head.querySelector('link[rel="icon"]');
+        if (!icon) {
+          icon = document.createElement('link');
+          icon.rel = 'icon';
+          head.appendChild(icon);
+        }
+        icon.href = href;
+
+        // 兼容旧浏览器：同步 rel="shortcut icon"
         let legacy = head.querySelector('link[rel="shortcut icon"]');
         if (!legacy) {
-          legacy = link.cloneNode();
+          legacy = document.createElement('link');
           legacy.rel = 'shortcut icon';
           head.appendChild(legacy);
-        } else {
-          legacy.href = href;
-          if (type) legacy.type = type;
-          legacy.sizes = 'any';
         }
+        legacy.href = href;
       }
 
-      async function updateFaviconFromLogo(url) {
-        if (!url || typeof url !== 'string') return;
-        try {
-          const img = new Image();
-          img.crossOrigin = 'anonymous'; // CORS 允许则转为 dataURL，便于 Safari 等老版本支持
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = url;
-          });
+      // 初始化用当前 CustomLogo
+      setFavicon(window.CustomLogo);
 
-          const size = FAVICON_SIZE;
-          const canvas = document.createElement('canvas');
-          canvas.width = canvas.height = size;
-          const ctx = canvas.getContext('2d');
-
-          // 清底并按 contain 等比缩放，居中绘制
-          ctx.clearRect(0, 0, size, size);
-          const ratio = Math.min(size / img.width, size / img.height);
-          const w = Math.max(1, Math.round(img.width * ratio));
-          const h = Math.max(1, Math.round(img.height * ratio));
-          const x = Math.round((size - w) / 2);
-          const y = Math.round((size - h) / 2);
-          ctx.drawImage(img, x, y, w, h);
-
-          const dataUrl = canvas.toDataURL('image/png');
-          setFaviconHref(dataUrl, 'image/png');
-        } catch (e) {
-          // 回退：直接把外链当 favicon（若 CSP 限制 data:，或无 CORS）
-          setFaviconHref(url, '');
-        }
-      }
-
-      // 1) 初始化：用当前 CustomLogo 试一次
-      updateFaviconFromLogo(window.CustomLogo);
-
-      // 2) 监听后续对 window.CustomLogo 的赋值（拦截器）
+      // 拦截后续对 window.CustomLogo 的赋值并同步 favicon
       try {
         let _logo = window.CustomLogo;
         Object.defineProperty(window, 'CustomLogo', {
@@ -259,35 +218,19 @@ html.dark body {
           get() { return _logo; },
           set(v) {
             _logo = v;
-            updateFaviconFromLogo(v);
+            setFavicon(v);
           }
         });
-      } catch {
-        // 在极少数环境下 defineProperty 会被限制：退化为轮询
+      } catch (e) {
+        // 极少数环境（被冻结等）使用轮询降级
         let last = window.CustomLogo;
         setInterval(() => {
-          if (window.CustomLogo && window.CustomLogo !== last) {
+          if (window.CustomLogo !== last) {
             last = window.CustomLogo;
-            updateFaviconFromLogo(last);
+            setFavicon(last);
           }
-        }, 2000);
+        }, 1500);
       }
-
-      // 3) 观察 DOM，如出现/变更可能的 logo <img>，也尝试同步
-      const mo = new MutationObserver(() => {
-        const candidate =
-          document.querySelector('img[alt*="logo" i], img[class*="logo" i]') ||
-          document.querySelector('img[alt*="icon" i], img[class*="icon" i]');
-        if (candidate && candidate.src) {
-          updateFaviconFromLogo(candidate.src);
-        }
-      });
-      mo.observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['src', 'class', 'alt']
-      });
     })();
 
     let isChinaUser = false; // 默认不是中国用户
@@ -356,7 +299,6 @@ html.dark body {
         { type: 'image', src: 'https://t.alcy.cc/fj' },
         { type: 'video', src: 'https://api.lolimi.cn/API/xjj/xjj.php' },
         { type: 'image', src: 'https://api.lolimi.cn/API/xjj/lt.php' },
-        { type: 'video', src: 'https://pic.budongkeji.cc/i/2025/02/04/12ajq0b.mp4' },
       ];
       const randomChinaSource = chinaMediaSources[Math.floor(Math.random() * chinaMediaSources.length)];
 
