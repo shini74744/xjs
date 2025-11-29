@@ -18,62 +18,54 @@
     /Android|iPhone|iPad|iPod|Windows Phone|Mobi/i.test(ua) || isIPadOS;
 
   // =====================================================================
-  // ✅ 移动端：使用你这段里的“图片长按保护”原逻辑
+  // ✅ 移动端：仅禁用“图片长按保存”
   // =====================================================================
   if (isMobile) {
-    console.log("移动端访问，启用图片长按保护");
-
-    let touchTimer = null;
-
-    document.addEventListener(
-      "touchstart",
-      (e) => {
-        if (
-          e.target &&
-          e.target.tagName &&
-          e.target.tagName.toLowerCase() === "img"
-        ) {
-          touchTimer = setTimeout(() => {
-            alert("⚠️ 此图片已保护，不能保存！");
-          }, 1000);
-          e.preventDefault();
-        }
-      },
-      { passive: false }
-    );
-
-    document.addEventListener("touchend", () => {
-      clearTimeout(touchTimer);
-    });
-    document.addEventListener("touchmove", () => {
-      clearTimeout(touchTimer);
-    });
-
-    document.addEventListener("contextmenu", (e) => {
-      if (
-        e.target &&
-        e.target.tagName &&
-        e.target.tagName.toLowerCase() === "img"
-      )
-        e.preventDefault();
-    });
-
     const style = document.createElement("style");
     style.innerHTML = `
       img {
         -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        -webkit-user-drag: none !important;
+        user-drag: none !important;
       }
     `;
     document.head.appendChild(style);
 
-    return; // 移动端到此结束，不执行 PC 防护
+    document.addEventListener(
+      "contextmenu",
+      (e) => {
+        const t = e.target;
+        if (t && t.tagName && t.tagName.toLowerCase() === "img") {
+          e.preventDefault();
+        }
+      },
+      true
+    );
+
+    return; // ✅ 移动端到此结束，PC 端不执行
   }
 
   // =====================================================================
-  // ✅ PC：更稳版（基线增量 + 绝对差值/比例）
+  // ✅ PC：防护（自适应一次学习 + 1秒2次反调试）
+  // - DevTools 视觉检测使用“基线自适应”，减少窗口化/套壳误判
+  // - 支持通过 ?reset_baseline=1 重置学习
   // =====================================================================
 
-  // 1) 禁用快捷键 (PC)
+  // -------------------------------
+  // 1. 禁用快捷键 (PC)
+  // -------------------------------
+  const punishOnce = (() => {
+    let punished = false;
+    return (msg) => {
+      if (punished) return;
+      punished = true;
+      alert(msg);
+      window.location.href = jumpUrl;
+    };
+  })();
+
   document.addEventListener("keydown", (e) => {
     if (
       e.keyCode === 123 || // F12
@@ -82,109 +74,170 @@
       (e.ctrlKey && e.keyCode === 85) // Ctrl+U
     ) {
       e.preventDefault();
-      alert("检测到开发者工具快捷键，操作被阻止");
-      window.location.href = jumpUrl;
+      punishOnce("检测到开发者工具快捷键，操作被阻止");
     }
   });
 
-  // 2) DevTools 检测：基线 + 增量
-  let baseDiffH = null;
-  let baseDiffW = null;
+  // -------------------------------
+  // 2. DevTools 检测：自适应一次学习（baseline）
+  // -------------------------------
+  const BASELINE_KEY = "__shli_devtools_baseline_v2__";
 
-  function sampleBaseline() {
-    const diffH = Math.abs(window.outerHeight - window.innerHeight);
-    const diffW = Math.abs(window.outerWidth - window.innerWidth);
-    baseDiffH = diffH;
-    baseDiffW = diffW;
+  // 允许通过 URL 重置：?reset_baseline=1
+  try {
+    const params = new URLSearchParams(location.search);
+    if (params.get("reset_baseline") === "1") {
+      localStorage.removeItem(BASELINE_KEY);
+    }
+  } catch (_) {}
+
+  function getDiff() {
+    return {
+      h: Math.abs((window.outerHeight || 0) - window.innerHeight),
+      w: Math.abs((window.outerWidth || 0) - window.innerWidth),
+      hRatio: window.outerHeight ? window.innerHeight / window.outerHeight : 1,
+      wRatio: window.outerWidth ? window.innerWidth / window.outerWidth : 1,
+    };
   }
 
-  // 首次进入延迟采样（等 UI 稳定）
-  setTimeout(sampleBaseline, 800);
+  function median(arr) {
+    if (!arr.length) return 0;
+    const a = arr.slice().sort((x, y) => x - y);
+    return a[Math.floor(a.length / 2)];
+  }
 
-  // 检测启用延迟 + resize 后延迟（减少误判）
+  function loadBaseline() {
+    try {
+      const raw = localStorage.getItem(BASELINE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveBaseline(obj) {
+    try {
+      localStorage.setItem(BASELINE_KEY, JSON.stringify(obj));
+    } catch (_) {}
+  }
+
+  let baseline = loadBaseline();
+
+  // 学习过程：采样多次取中位数，顺便估计抖动 jitter
+  async function learnBaselineOnce() {
+    // 已有 baseline 就不重复学（除非重置）
+    if (baseline) return;
+
+    // 页面稳定后再采样（UI、字体、布局，避免初始抖动）
+    await new Promise((r) => setTimeout(r, 1100));
+
+    const samples = [];
+    for (let i = 0; i < 7; i++) {
+      samples.push(getDiff());
+      await new Promise((r) => setTimeout(r, 180));
+    }
+
+    const hs = samples.map((s) => s.h);
+    const ws = samples.map((s) => s.w);
+
+    const baseH = median(hs);
+    const baseW = median(ws);
+
+    // jitter：用“最大偏离中位数”的程度估计正常抖动范围
+    const jitterH = Math.max(...hs.map((v) => Math.abs(v - baseH)));
+    const jitterW = Math.max(...ws.map((v) => Math.abs(v - baseW)));
+
+    baseline = {
+      baseH,
+      baseW,
+      jitterH,
+      jitterW,
+      ts: Date.now(),
+    };
+    saveBaseline(baseline);
+  }
+
+  // 触发学习（不阻塞主线程）
+  learnBaselineOnce();
+
+  // resize 后不重学，只延迟检测启用，避免窗口化瞬间误判
   let devtoolsCheckEnabled = false;
-  let enableTimer = setTimeout(() => (devtoolsCheckEnabled = true), 1200);
+  let enableTimer = setTimeout(() => (devtoolsCheckEnabled = true), 1300);
 
-  let baselineTimer = null;
   window.addEventListener("resize", () => {
-    clearTimeout(baselineTimer);
-    baselineTimer = setTimeout(sampleBaseline, 800);
-
     devtoolsCheckEnabled = false;
     clearTimeout(enableTimer);
     enableTimer = setTimeout(() => (devtoolsCheckEnabled = true), 1200);
+
+    // 如果用户主动大幅调整窗口，我们不自动重学（避免“学坏”）
+    // 需要重学可用 ?reset_baseline=1
   });
 
-  function isDevtoolsOpenByDelta() {
-    if (baseDiffH === null || baseDiffW === null) return false;
-    if (!window.outerHeight || !window.outerWidth) return false;
+  // 判定：相对 baseline 的增量（动态阈值 = 固定阈值 + jitter 余量）
+  function isDevtoolsOpenAdaptive() {
+    if (!baseline) return false;
 
-    const diffH = Math.abs(window.outerHeight - window.innerHeight);
-    const diffW = Math.abs(window.outerWidth - window.innerWidth);
+    const d = getDiff();
 
-    const deltaH = diffH - baseDiffH;
-    const deltaW = diffW - baseDiffW;
+    // 动态增量阈值：在各种环境下更稳
+    const deltaH = d.h - baseline.baseH;
+    const deltaW = d.w - baseline.baseW;
 
-    return deltaH > 220 || deltaW > 220;
+    const thH = 220 + Math.min(baseline.jitterH || 0, 80); // jitter 上限，防止阈值被抬太高
+    const thW = 220 + Math.min(baseline.jitterW || 0, 80);
+
+    return deltaH > thH || deltaW > thW;
   }
 
-  // 3) 开局已打开 DevTools：绝对差值 + 比例（更保守）
-  function isDevtoolsOpenByAbs() {
-    if (!window.outerHeight || !window.outerWidth) return false;
-
-    const diffH = Math.abs(window.outerHeight - window.innerHeight);
-    const diffW = Math.abs(window.outerWidth - window.innerWidth);
-
-    const hRatio = window.innerHeight / window.outerHeight;
-    const wRatio = window.innerWidth / window.outerWidth;
-
-    const byH = diffH > 360 && hRatio < 0.78;
-    const byW = diffW > 360 && wRatio < 0.78;
-
+  // 补充：开局已打开 DevTools 的“绝对差值 + 比例”保守检测（不依赖 baseline）
+  function isDevtoolsOpenAbs() {
+    const d = getDiff();
+    const byH = d.h > 360 && d.hRatio < 0.78;
+    const byW = d.w > 360 && d.wRatio < 0.78;
     return byH || byW;
   }
 
-  function punish() {
-    alert("检测到开发者工具已打开！");
-    window.location.href = jumpUrl;
-  }
-
-  let hitDelta = 0;
+  let hitAdaptive = 0;
   let hitAbs = 0;
 
   setInterval(() => {
     if (!devtoolsCheckEnabled) return;
 
-    if (isDevtoolsOpenByDelta()) hitDelta++;
-    else hitDelta = 0;
+    if (isDevtoolsOpenAdaptive()) hitAdaptive++;
+    else hitAdaptive = 0;
 
-    if (isDevtoolsOpenByAbs()) hitAbs++;
+    if (isDevtoolsOpenAbs()) hitAbs++;
     else hitAbs = 0;
 
-    if (hitDelta >= 2 || hitAbs >= 3) punish();
+    if (hitAdaptive >= 2 || hitAbs >= 3) {
+      punishOnce("检测到开发者工具已打开！");
+    }
   }, 500);
 
-  // 4) 反调试 (PC)
+  // -------------------------------
+  // 3. 反调试 (PC)：1秒2次（500ms 一次）
+  // -------------------------------
   function antiDebug() {
+    const dbg = Function("debugger");
     setInterval(() => {
-      (function () {
-        return false;
-      })
-        ["constructor"]("debugger")
-        ["call"]();
-    }, 50);
+      dbg();
+    }, 500);
   }
   try {
     antiDebug();
-  } catch (err) {}
+  } catch (_) {}
 
-  // 5) 禁用右键（PC）
+  // -------------------------------
+  // 4. 禁用右键（PC）
+  // -------------------------------
   document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     alert("右键已被禁用");
   });
 
-  // 6) 禁止选中（PC）
+  // -------------------------------
+  // 5. 禁止选中（PC）
+  // -------------------------------
   document.addEventListener("selectstart", (e) => e.preventDefault());
   document.addEventListener("mousedown", (e) => {
     if (e.button === 2) e.preventDefault();
