@@ -134,7 +134,7 @@
     const samples = [];
     for (let i = 0; i < 7; i++) {
       samples.push(getDiff());
-      await new Promise((r) => setTimeout(r, 180));
+      await new Promise((r) => setTimeout(r, 180)); // 每次采样间隔增加，减少过早学习
     }
 
     const hs = samples.map((s) => s.h);
@@ -162,12 +162,12 @@
 
   // resize 后不重学，只延迟检测启用，避免窗口化瞬间误判
   let devtoolsCheckEnabled = false;
-  let enableTimer = setTimeout(() => (devtoolsCheckEnabled = true), 1300);
+  let enableTimer = setTimeout(() => (devtoolsCheckEnabled = true), 2000); // 延迟启用检查
 
   window.addEventListener("resize", () => {
     devtoolsCheckEnabled = false;
     clearTimeout(enableTimer);
-    enableTimer = setTimeout(() => (devtoolsCheckEnabled = true), 1200);
+    enableTimer = setTimeout(() => (devtoolsCheckEnabled = true), 2000); // 增加检测延迟
 
     // 如果用户主动大幅调整窗口，我们不自动重学（避免“学坏”）
     // 需要重学可用 ?reset_baseline=1
@@ -183,8 +183,8 @@
     const deltaH = d.h - baseline.baseH;
     const deltaW = d.w - baseline.baseW;
 
-    const thH = 220 + Math.min(baseline.jitterH || 0, 80); // jitter 上限，防止阈值被抬太高
-    const thW = 220 + Math.min(baseline.jitterW || 0, 80);
+    const thH = 250 + Math.min(baseline.jitterH || 0, 100); // 增大阈值，防止误判
+    const thW = 250 + Math.min(baseline.jitterW || 0, 100); // 增大阈值，防止误判
 
     return deltaH > thH || deltaW > thW;
   }
@@ -192,8 +192,8 @@
   // 补充：开局已打开 DevTools 的“绝对差值 + 比例”保守检测（不依赖 baseline）
   function isDevtoolsOpenAbs() {
     const d = getDiff();
-    const byH = d.h > 360 && d.hRatio < 0.78;
-    const byW = d.w > 360 && d.wRatio < 0.78;
+    const byH = d.h > 400 && d.hRatio < 0.8; // 增加最小差值
+    const byW = d.w > 400 && d.wRatio < 0.8; // 增加最小差值
     return byH || byW;
   }
 
