@@ -175,7 +175,7 @@ html.dark body {
     window.CustomLinks = '[{"link":"https://t.me/contact/1746959833:pDG7N84llgNWazU8","name":"联系我定制"},{"link":"https://github.com/hamster1963/nezha-dash","name":"GitHub"}]';
     window.CustomLogo = "https://cdn.skyimg.net/up/2025/1/13/zera6q.webp";
     window.ShowNetTransfer = "true";
-    window.CustomIllustration = 'https://free.picui.cn/free/2025/04/15/67fe011873e90.gif';
+    window.CustomIllustration = 'https://cdn.nodeimage.com/i/TfZilY1yV3SMHqEsPmsSF4IqERBzdGUE.gif';
     window.CustomDesc = "专业服务，技术先行";
 
     // —— 仅将 favicon 直接跟随 window.CustomLogo（不做转码/裁剪/猜测）——
