@@ -85,18 +85,38 @@
   }
 
   function updateSpeedColors(){
-    const speedElems=document.querySelectorAll('p[class*="text-[11px]"]');
-    if(speedElems.length<2) return;
-    const uploadElem=speedElems[0];
-    const downloadElem=speedElems[1];
-    const uploadSpeed=parseSpeed(uploadElem.textContent.trim());
-    const downloadSpeed=parseSpeed(downloadElem.textContent.trim());
+    const speedElems = document.querySelectorAll('p[class*="text-[11px]"]');
+    if (speedElems.length < 2) return;
+
+    const uploadElem = speedElems[0];
+    const downloadElem = speedElems[1];
     
+    // 获取实时上传和下载速率文本内容
+    const uploadSpeedStr = uploadElem.textContent.trim();
+    const downloadSpeedStr = downloadElem.textContent.trim();
+
+    // 输出速率数据，用于调试
+    console.log('Current Upload:', uploadSpeedStr);
+    console.log('Current Download:', downloadSpeedStr);
+
+    // 解析速率数据
+    const uploadSpeed = parseSpeed(uploadSpeedStr);
+    const downloadSpeed = parseSpeed(downloadSpeedStr);
+
+    // 如果速率是0，跳过更新
+    if (uploadSpeed === 0 || downloadSpeed === 0) {
+      console.log('Zero speed detected.');
+      return;
+    }
+
     // 将字节数转换为 Mbps
     const uploadMbps = bytesToMbps(uploadSpeed);
     const downloadMbps = bytesToMbps(downloadSpeed);
 
     // 更新文本内容为 Mbps 格式
+    console.log('Calculated Upload Mbps:', uploadMbps);
+    console.log('Calculated Download Mbps:', downloadMbps);
+
     uploadElem.textContent = `${uploadMbps.toFixed(2)} Mbps`;
     downloadElem.textContent = `${downloadMbps.toFixed(2)} Mbps`;
 
@@ -108,7 +128,7 @@
   }
 
   // 每 500 毫秒更新速率
-  setInterval(()=>{
-    if(!document.hidden) updateSpeedColors();
+  setInterval(() => {
+    if (!document.hidden) updateSpeedColors();
   }, REFRESH_INTERVAL);
 })();
