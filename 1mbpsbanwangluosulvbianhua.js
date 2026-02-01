@@ -96,16 +96,19 @@
     const uploadMbps = bytesToMbps(uploadSpeed);
     const downloadMbps = bytesToMbps(downloadSpeed);
 
-    uploadElem.textContent = `${uploadMbps.toFixed(2)} Mbps`; // 显示为 Mbps
-    downloadElem.textContent = `${downloadMbps.toFixed(2)} Mbps`; // 显示为 Mbps
+    // 更新文本内容为 Mbps 格式
+    uploadElem.textContent = `${uploadMbps.toFixed(2)} Mbps`;
+    downloadElem.textContent = `${downloadMbps.toFixed(2)} Mbps`;
 
-    uploadElem.style.color=speedToColor(uploadSpeed,MAX_SPEED,'upload');
-    downloadElem.style.color=speedToColor(downloadSpeed,MAX_SPEED,'download');
-    applyEffect(uploadElem,uploadSpeed,'upload');
-    applyEffect(downloadElem,downloadSpeed,'download');
+    // 更新颜色和效果
+    uploadElem.style.color = speedToColor(uploadSpeed, MAX_SPEED, 'upload');
+    downloadElem.style.color = speedToColor(downloadSpeed, MAX_SPEED, 'download');
+    applyEffect(uploadElem, uploadSpeed, 'upload');
+    applyEffect(downloadElem, downloadSpeed, 'download');
   }
 
+  // 每 500 毫秒更新速率
   setInterval(()=>{
     if(!document.hidden) updateSpeedColors();
-  },REFRESH_INTERVAL);
+  }, REFRESH_INTERVAL);
 })();
