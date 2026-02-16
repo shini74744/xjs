@@ -6,14 +6,14 @@
    * ✅ 你最常改的参数都在这里
    * ========================= */
 
-  // --- PC端（桌面）位置与大小 ---
+  // --- PC端（桌面）位置与大小：右上角 ---
   const DESKTOP_RIGHT_PX = 0;   // ← PC：距离右侧(px)，想往左就调大
   const DESKTOP_TOP_PX   = 0;   // ← PC：距离顶部(px)，想往下就调大
   const DESKTOP_W_PX     = 240; // ← PC：宽度(px)
   const DESKTOP_H_PX     = 60;  // ← PC：高度(px)
 
-  // --- 手机端（移动）位置与大小：底部居中 ---
-  const MOBILE_BOTTOM_PX = 8;   // ← 手机：距离底部(px)，想往上就调大
+  // --- 手机端（移动）位置与大小：顶部居中 ---
+  const MOBILE_TOP_PX    = 8;   // ← 手机：距离顶部(px)，想往下就调大
   const MOBILE_W_PX      = 180; // ← 手机：宽度(px)
   const MOBILE_H_PX      = 44;  // ← 手机：高度(px)
   const MOBILE_X_OFFSET_PX = 0; // ← 手机：水平微调(px)，正数往右，负数往左
@@ -56,11 +56,11 @@
       display: block;
     }
 
-    /* ✅ 手机：底部居中固定（顶部显示，下滑隐藏） */
+    /* ✅ 手机：顶部居中固定（顶部显示，下滑隐藏） */
     .footer-background.is-mobile {
       position: fixed;
       left: calc(50% + ${MOBILE_X_OFFSET_PX}px); /* ← 改这里：手机左右微调 */
-      bottom: ${MOBILE_BOTTOM_PX}px;             /* ← 改这里：手机离底部距离 */
+      top: ${MOBILE_TOP_PX}px;                   /* ← 改这里：手机距离顶部 */
       width: ${MOBILE_W_PX}px;                   /* ← 改这里：手机宽度 */
       height: ${MOBILE_H_PX}px;                  /* ← 改这里：手机高度 */
       transform: translateX(-50%);
