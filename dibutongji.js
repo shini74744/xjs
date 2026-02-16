@@ -10,7 +10,7 @@
   style.textContent = `
       .footer-background {
           display: none;
-          background-image: url('https://api.likepoems.com/counter/get/@123a?theme=moebooru');
+          background-image: url('https://count.getloli.com/@tongji?name=tongji&theme=booru-mjg&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto');
           background-size: contain;
           background-repeat: no-repeat;
           background-position: center center;
@@ -19,7 +19,7 @@
           max-width: 360px;
           min-width: 200px;
           position: fixed;
-          right: 40px;
+          right: 60px;
           bottom: 1px;
           z-index: 9988;
           opacity: 0;
