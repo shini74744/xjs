@@ -16,7 +16,7 @@
   const MOBILE_TOP_PX    = 8;   // ← 手机：距离顶部(px)，想往下就调大
   const MOBILE_W_PX      = 170; // ← 手机：宽度(px)
   const MOBILE_H_PX      = 44;  // ← 手机：高度(px)
-  const MOBILE_X_OFFSET_PX = 5; // ← 手机：水平微调(px)，正数往右，负数往左
+  const MOBILE_X_OFFSET_PX = 15; // ← 手机：水平微调(px)，正数往右，负数往左
 
   // --- 显示/隐藏触发 ---
   const TOP_THRESHOLD_PX = 5;   // ← 距离顶部<=多少px算“在顶部”：越大越容易显示
