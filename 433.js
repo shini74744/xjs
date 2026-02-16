@@ -113,3 +113,21 @@
       footer.style.transform = "scale(0)";
     }
   }
+
+  // 如果页面是前端动态渲染，元素可能晚点出现：用 MutationObserver 兜底
+  const observer = new MutationObserver(() => {
+    // 只有手机端才需要盯着插入点
+    if (window.innerWidth < 768) {
+      placeFooterOnMobile();
+    }
+  });
+
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  window.addEventListener("scroll", updateFooter, { passive: true });
+  window.addEventListener("resize", updateFooter);
+  window.addEventListener("load", updateFooter);
+
+  // 立即跑一次
+  updateFooter();
+})();
