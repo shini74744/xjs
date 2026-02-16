@@ -1,8 +1,9 @@
 (function () {
   if (window.location.hostname !== "shli.io") return;
 
-  // 目标：这个 <div class="flex items-center gap-2"> 里面的链接
-  const LINK_SELECTOR = 'a.custom-login-link[href="/dashboard"]';
+  // 这两个关键词用来定位“标题栏”和“概览”
+  const BRAND_TEXT = "nezha云监控";
+  const OVERVIEW_TEXT = "概览";
 
   const footer = document.createElement("div");
   footer.className = "footer-background";
@@ -25,80 +26,124 @@
       top: 0;
       width: 240px;
       height: 60px;
+      opacity: 0;
+      transform: scale(0);
       transform-origin: top right;
       transition: all .5s ease-in-out;
+      display: block;
     }
 
-    /* 手机：作为普通块元素，插在目标元素下面 */
+    /* 手机：插在标题栏下面（正常文档流） */
     .footer-background.is-mobile{
       position: static;
       width: 180px;
       height: 44px;
-      margin-top: 8px;
-      transform-origin: center;
+      margin: 8px auto 10px; /* 居中 + 留出上下间距 */
+      opacity: 1;
+      transform: scale(1);
       transition: none;
+      display: block;
     }
   `;
   document.head.appendChild(style);
-
-  // 先丢到 body，后面会根据端调整位置
   document.body.appendChild(footer);
 
-  function insertAfterTargetOnMobile() {
-    const link = document.querySelector(LINK_SELECTOR);
-    if (!link) return false;
+  // --------- 工具：找包含某段文字的“第一个可用元素” ----------
+  function findFirstElementContainingText(text) {
+    const root = document.body;
+    if (!root) return null;
 
-    // 你给的就是这个 div（优先用它）
-    const box = link.closest("div.flex.items-center.gap-2") || link.closest("div") || link.parentElement;
-    if (!box || !box.parentElement) return false;
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_ELEMENT,
+      {
+        acceptNode(node) {
+          const tag = node.tagName;
+          if (!tag) return NodeFilter.FILTER_SKIP;
+          if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT") return NodeFilter.FILTER_SKIP;
 
-    // 关键：插在 box 的“下面”，不是 inside
-    box.insertAdjacentElement("afterend", footer);
-    return true;
+          const t = (node.textContent || "").trim();
+          if (!t || t.length > 2000) return NodeFilter.FILTER_SKIP; // 避免抓到超大容器
+
+          return t.includes(text) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
+      }
+    );
+
+    return walker.nextNode();
+  }
+
+  // --------- 手机端：把 footer 插到“标题栏”下面（afterend） ----------
+  function placeFooterOnMobile() {
+    const brandNode = findFirstElementContainingText(BRAND_TEXT);
+    if (brandNode) {
+      // 优先找 header/nav；没有就找一个合理的 div 容器
+      const headerBox =
+        brandNode.closest("header") ||
+        brandNode.closest("nav") ||
+        brandNode.closest("div");
+
+      if (headerBox && headerBox.parentElement) {
+        headerBox.insertAdjacentElement("afterend", footer); // ✅ 在元素下面，不是 inside
+        return true;
+      }
+    }
+
+    // 兜底：如果没找到标题栏，就插到“概览”前面
+    const overviewNode = findFirstElementContainingText(OVERVIEW_TEXT);
+    if (overviewNode && overviewNode.parentElement) {
+      // 插在概览节点前面，也能落在“标题与概览之间”
+      overviewNode.insertAdjacentElement("beforebegin", footer);
+      return true;
+    }
+
+    return false;
+  }
+
+  // --------- PC端：固定放 body（不依赖结构） ----------
+  function placeFooterOnDesktop() {
+    if (footer.parentElement !== document.body) {
+      document.body.appendChild(footer);
+    }
   }
 
   function update() {
     const isMobile = window.innerWidth < 768;
+    const atTop = window.scrollY <= 5;
 
     if (isMobile) {
       footer.classList.remove("is-desktop");
       footer.classList.add("is-mobile");
 
-      // 手机端：强制可见（避免被之前内联样式压住）
-      footer.style.display = "block";
-      footer.style.opacity = "1";
-      footer.style.transform = "scale(1)";
+      // 手机端：必须先放到正确位置
+      placeFooterOnMobile();
 
-      insertAfterTargetOnMobile();
+      // 手机端：顶部显示，往下滑直接隐藏（不占位）
+      footer.style.display = atTop ? "block" : "none";
       return;
     }
 
-    // PC端：右上角悬浮 + 顶部显示，下滑隐藏
-    if (footer.parentElement !== document.body) document.body.appendChild(footer);
-
+    // Desktop：右上角 + 动画显示/隐藏
+    placeFooterOnDesktop();
     footer.classList.remove("is-mobile");
     footer.classList.add("is-desktop");
 
-    const atTop = window.scrollY <= 5;
-    footer.style.display = "block";
     footer.style.opacity = atTop ? "1" : "0";
     footer.style.transform = atTop ? "scale(1)" : "scale(0)";
   }
 
-  // 兜底：DOM 动态渲染时，目标元素晚出现也能插进去
+  // 动态渲染兜底：监听 DOM 变化，确保手机端能插进去
   const observer = new MutationObserver(() => {
-    if (window.innerWidth < 768) insertAfterTargetOnMobile();
+    if (window.innerWidth < 768) placeFooterOnMobile();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  // 再兜底：前几秒轮询（有些框架 MutationObserver 也可能错过时机）
+  // 再兜底：前几秒轮询（防止某些框架晚渲染）
   let tries = 0;
   const timer = setInterval(() => {
     tries++;
-    if (window.innerWidth < 768 && insertAfterTargetOnMobile()) {
-      clearInterval(timer);
-    }
-    if (tries >= 40) clearInterval(timer); // 大约 10 秒
+    if (window.innerWidth < 768 && placeFooterOnMobile()) clearInterval(timer);
+    if (tries >= 40) clearInterval(timer); // ~10秒
   }, 250);
 
   window.addEventListener("scroll", update, { passive: true });
