@@ -23,7 +23,7 @@
 
   // --- 图片地址 ---
   const BG_URL =
-    "https://count.getloli.com/@tongji?name=tongji&theme=booru-mjg&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto";
+    "https://count.getloli.com/@tongji?name=tongji&theme=random&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto";
 
   /* =========================
    * ✅ 创建元素与样式
