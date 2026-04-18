@@ -137,7 +137,7 @@
         const a = document.createElement('a');
         a.className = 'nezha-ping-btn';
         a.textContent = isIPv4 ? 'Ping0v4' : 'Ping0v6';
-        a.href = `https://ping0.cc/ping/${ip}`;
+        a.href = `https://ping0.cc/ip/${ip}`;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         return a;
