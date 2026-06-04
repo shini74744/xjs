@@ -1,3 +1,4 @@
+/* 26.6.4更新 */
 (function () {
   // 仅在 shli.io 域名下执行
   if (window.location.hostname !== 'shli.io') return;
