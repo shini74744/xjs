@@ -1,11 +1,54 @@
 /* 26.6.5更新 */
 (() => {
-  const VERSION = "20260605-optimized";
+  const VERSION = "20260605-no-flicker";
+
+  const PREHIDE_ID = "__dnm_prehide_style__";
 
   const containerPath =
     "#root > div.flex.min-h-screen.w-full.flex-col > main > div.mx-auto.w-full.max-w-5xl.px-0.flex.flex-col.gap-4.server-info";
 
   const selectorSection = "section.flex.items-center.my-2.w-full";
+
+  // 关键：脚本一加载，立刻隐藏 server-info，避免切换详细/网络时闪动
+  function installPrehideStyle() {
+    if (document.getElementById(PREHIDE_ID)) return;
+
+    const style = document.createElement("style");
+    style.id = PREHIDE_ID;
+    style.textContent = `
+      .server-info {
+        opacity: 0 !important;
+        transition: none !important;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function removePrehideStyle() {
+    const style = document.getElementById(PREHIDE_ID);
+    if (style) style.remove();
+  }
+
+  installPrehideStyle();
+
+  if (window.__DNM_OBSERVER__) {
+    window.__DNM_OBSERVER__.disconnect();
+  }
+
+  if (window.__DNM_INTERVAL__) {
+    clearInterval(window.__DNM_INTERVAL__);
+  }
+
+  if (window.__DNM_FAILSAFE__) {
+    clearTimeout(window.__DNM_FAILSAFE__);
+  }
+
+  // 防止异常时页面一直透明
+  window.__DNM_FAILSAFE__ = setTimeout(() => {
+    removePrehideStyle();
+    console.warn("[详情网络合并] 超时保护：已恢复页面显示");
+  }, 6000);
 
   let lastUrl = location.href;
   let busy = false;
@@ -42,7 +85,6 @@
     return (
       s.display !== "none" &&
       s.visibility !== "hidden" &&
-      s.opacity !== "0" &&
       r.width > 0 &&
       r.height > 0
     );
@@ -59,6 +101,14 @@
       detailDisplay: "block",
       networkDisplay: "block",
     };
+
+    installPrehideStyle();
+
+    clearTimeout(window.__DNM_FAILSAFE__);
+    window.__DNM_FAILSAFE__ = setTimeout(() => {
+      removePrehideStyle();
+      console.warn("[详情网络合并] 超时保护：已恢复页面显示");
+    }, 6000);
   }
 
   function checkUrlChange() {
@@ -79,15 +129,13 @@
   function findTabSection(container) {
     if (!container) return null;
 
-    let section = container.querySelector(selectorSection);
+    const section = container.querySelector(selectorSection);
 
     if (section) return section;
 
     const candidates = Array.from(
       container.querySelectorAll("section, div, nav, [role='tablist']")
     ).filter(el => {
-      if (!isVisible(el)) return false;
-
       const txt = textOf(el);
       const r = el.getBoundingClientRect();
 
@@ -133,9 +181,10 @@
   function findButton(section, words) {
     if (!section) return null;
 
+    // 这里不再强制判断 visible，避免按钮栏被隐藏后找不到按钮
     const nodes = Array.from(
       section.querySelectorAll("button, [role='tab'], div, span, a")
-    ).filter(isVisible);
+    );
 
     const target = nodes.find(el => words.includes(textOf(el)));
 
@@ -287,12 +336,13 @@
 
     if (!detailBtn || !networkBtn) {
       hideSection(section);
+      removePrehideStyle();
       return false;
     }
 
-    // 1. 切到详细，记录详细原始面板和它原本的 display
+    // 1. 切到详细，记录详细面板
     clickReal(detailBtn);
-    await sleep(300);
+    await sleep(180);
 
     const detailPanel = findActivePanel(container, section);
 
@@ -303,9 +353,9 @@
 
     const detailDisplay = getComputedStyle(detailPanel).display || "block";
 
-    // 2. 切到网络，记录网络原始面板和它原本的 display
+    // 2. 切到网络，记录网络面板
     clickReal(networkBtn);
-    await sleep(300);
+    await sleep(180);
 
     const networkPanel = findActivePanel(container, section);
 
@@ -326,15 +376,19 @@
     cache.detailDisplay = detailDisplay;
     cache.networkDisplay = networkDisplay;
 
-    // 3. 只显示这两个面板，不碰页脚和其它块
+    // 3. 只显示这两个面板，不碰页脚
     forceShowPanel(cache.detailPanel, cache.detailDisplay);
     forceShowPanel(cache.networkPanel, cache.networkDisplay);
 
     // 4. 排序：详细在上，网络在下
     sortDetailAboveNetwork(cache.detailPanel, cache.networkPanel);
 
-    // 5. 隐藏按钮栏
+    // 5. 隐藏“详细 / 网络”按钮栏
     hideSection(section);
+
+    // 6. 排好之后再显示页面，避免闪动
+    clearTimeout(window.__DNM_FAILSAFE__);
+    removePrehideStyle();
 
     return true;
   }
@@ -350,7 +404,12 @@
       const container = cache.container;
       const section = cache.section;
 
-      if (!container || !section) return;
+      if (!container) return;
+
+      if (!section) {
+        removePrehideStyle();
+        return;
+      }
 
       cleanupOldCloneCode();
 
@@ -361,6 +420,7 @@
         forceShowPanel(cache.networkPanel, cache.networkDisplay);
         sortDetailAboveNetwork(cache.detailPanel, cache.networkPanel);
         hideSection(section);
+        removePrehideStyle();
       }
     } finally {
       busy = false;
@@ -382,30 +442,33 @@
     const root = document.querySelector("#root");
 
     if (!root) {
-      setTimeout(startObserver, 300);
+      setTimeout(startObserver, 100);
       return;
     }
 
     cleanupOldCloneCode();
 
-    setTimeout(injectLayout, 300);
-    setTimeout(injectLayout, 1000);
-    setTimeout(injectLayout, 2000);
+    // 直接执行，不再等 300/1000/2000ms
+    injectLayout();
 
-    const observer = new MutationObserver(() => {
-      clearTimeout(window.__dnm_debounce_timer__);
-      window.__dnm_debounce_timer__ = setTimeout(schedule, 300);
+    window.__DNM_OBSERVER__ = new MutationObserver(() => {
+      clearTimeout(window.__DNM_DEBOUNCE__);
+      window.__DNM_DEBOUNCE__ = setTimeout(schedule, 120);
     });
 
-    observer.observe(root, {
+    window.__DNM_OBSERVER__.observe(root, {
       childList: true,
       subtree: true,
     });
 
-    setInterval(() => {
+    window.__DNM_INTERVAL__ = setInterval(() => {
       injectLayout();
     }, 5000);
   }
 
-  startObserver();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startObserver);
+  } else {
+    startObserver();
+  }
 })();
