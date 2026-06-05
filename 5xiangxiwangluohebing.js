@@ -1,3 +1,4 @@
+/* 26.6.5更新 */
 (() => {
   const VERSION = "20260605-hidden-switch-original";
 
