@@ -1,5 +1,5 @@
 (() => {
-  const VERSION = "20260605-original-logic";
+  const VERSION = "20260605-hidden-switch-original";
 
   const containerPath =
     "#root > div.flex.min-h-screen.w-full.flex-col > main > div.mx-auto.w-full.max-w-5xl.px-0.flex.flex-col.gap-4.server-info";
@@ -43,7 +43,6 @@
     return (
       s.display !== "none" &&
       s.visibility !== "hidden" &&
-      s.opacity !== "0" &&
       r.width > 0 &&
       r.height > 0
     );
@@ -102,7 +101,6 @@
     );
 
     const target = nodes.find(el => words.includes(textOf(el)));
-
     if (!target) return null;
 
     let cur = target;
@@ -252,11 +250,45 @@
     return true;
   }
 
+  function hideContainerBackground(container) {
+    if (!container) return null;
+
+    const oldOpacity = container.style.opacity;
+    const oldTransition = container.style.transition;
+    const oldPointerEvents = container.style.pointerEvents;
+
+    container.style.setProperty("opacity", "0", "important");
+    container.style.setProperty("transition", "none", "important");
+    container.style.setProperty("pointer-events", "none", "important");
+
+    return () => {
+      container.style.opacity = oldOpacity || "";
+      container.style.transition = oldTransition || "";
+      container.style.pointerEvents = oldPointerEvents || "";
+    };
+  }
+
+  async function waitPanel(container, section, oldPanel = null) {
+    for (let i = 0; i < 8; i++) {
+      await sleep(50);
+
+      const panel = findActivePanel(container, section);
+
+      if (panel && panel !== oldPanel) {
+        return panel;
+      }
+    }
+
+    return findActivePanel(container, section);
+  }
+
   async function runOnce() {
     if (busy) return;
     if (doneUrl === location.href) return;
 
     busy = true;
+
+    let restoreContainer = null;
 
     try {
       cleanupOldCloneCode();
@@ -272,25 +304,25 @@
 
       if (!detailBtn || !networkBtn) {
         hideSection(section);
+        doneUrl = location.href;
         return;
       }
 
-      // 1. 切到详细，记录详细原始模块
-      clickReal(detailBtn);
-      await sleep(250);
+      // 核心：后台隐藏切换，避免用户看到详细/网络来回跳
+      restoreContainer = hideContainerBackground(container);
 
-      const detailPanel = findActivePanel(container, section);
+      // 1. 后台切到详细，记录详细原始模块
+      clickReal(detailBtn);
+      const detailPanel = await waitPanel(container, section);
 
       if (!detailPanel) {
         console.warn("[详情网络合并] 没找到详细模块");
         return;
       }
 
-      // 2. 切到网络，记录网络原始模块
+      // 2. 后台切到网络，记录网络原始模块
       clickReal(networkBtn);
-      await sleep(250);
-
-      const networkPanel = findActivePanel(container, section);
+      const networkPanel = await waitPanel(container, section, detailPanel);
 
       if (!networkPanel) {
         console.warn("[详情网络合并] 没找到网络模块");
@@ -302,7 +334,7 @@
         return;
       }
 
-      // 3. 按最开始逻辑：强制显示 server-info 里的原始子模块
+      // 3. 按最开始逻辑：强制显示原始模块，不 clone
       Array.from(container.children).forEach(child => {
         forceShow(child, section);
       });
@@ -315,8 +347,12 @@
 
       doneUrl = location.href;
 
-      console.log("[详情网络合并] 已完成：详细在上，网络在下");
+      console.log("[详情网络合并] 已完成：后台切换，详细在上，网络在下");
     } finally {
+      if (restoreContainer) {
+        restoreContainer();
+      }
+
       busy = false;
     }
   }
@@ -325,7 +361,7 @@
     if (doneUrl === location.href) return;
 
     clearTimeout(window.__DNM_DEBOUNCE__);
-    window.__DNM_DEBOUNCE__ = setTimeout(runOnce, 120);
+    window.__DNM_DEBOUNCE__ = setTimeout(runOnce, 80);
   }
 
   function start() {
@@ -334,7 +370,6 @@
     const root = document.querySelector("#root") || document.documentElement;
 
     window.__DNM_OBSERVER__ = new MutationObserver(() => {
-      // 只在当前 URL 还没执行成功时监听 DOM 加载
       if (doneUrl !== location.href) {
         scheduleRun();
       }
@@ -345,7 +380,7 @@
       subtree: true,
     });
 
-    // 只检查 URL 变化，不因为网络图表刷新反复重排
+    // 只监听 URL 变化，不因为图表刷新反复重排
     window.__DNM_INTERVAL__ = setInterval(() => {
       if (location.href !== lastUrl) {
         lastUrl = location.href;
